@@ -3,6 +3,7 @@ import tkinter as tk
 import tkinter.ttk as ttk
 from tkinter import filedialog
 from whisper import load_model
+import time
 
 
 whisper_models = {
@@ -17,6 +18,28 @@ whisper_models = {
     "medium.en": "English-optimized version of the medium model, best for English audio with high accuracy needs."
 }
 
+def is_file_locked(file_path):
+    lock_file = file_path + ".lock"
+
+    # Check if the lock file exists
+    if os.path.exists(lock_file):
+        # Check the age of the lock file
+        lock_age = time.time() - os.path.getmtime(lock_file)
+        if lock_age > 7200:  # 2 hours in seconds
+            os.remove(lock_file)  # Remove stale lock
+            return False  # File was locked, but lock was stale
+        else:
+            return True  # File is actively locked
+    return False  # No lock exists
+
+
+def lock_file(file_path):
+    lock_file = file_path + ".lock"
+    open(lock_file, 'a').close()  # Create an empty lock file
+
+def unlock_file(file_path):
+    lock_file = file_path + ".lock"
+    os.remove(lock_file)  # Remove the lock file
 
 
 def choose_directory():
@@ -80,6 +103,10 @@ def list_transcribable_files(directory):
     # Walk through the directory
     for root, dirs, files in os.walk(directory):
         for file in files:
+
+            if file.startswith('.'):
+                continue
+
             # Check if the file has a transcribable extension
             if any(file.lower().endswith(ext) for ext in transcribable_extensions):
                 # Add the file to the list
@@ -114,20 +141,29 @@ for file in files_to_transcribe:
     if os.path.exists(text_file) and os.path.getsize(text_file) > 0:
         print(f"Skipping {text_file} because it already exists and is not empty")
         continue
+    
+    if not is_file_locked(file):
+        lock_file(file)
+        transcribed_text = transcribe_file(file, model_name=selected_model)
 
-    transcribed_text = transcribe_file(file, model_name=selected_model)
 
-    # Check if the transcribed text is empty
-    if not transcribed_text:
+        # Check if the transcribed text is empty
+        if not transcribed_text:
+            print(f"Transcribed text is empty. Skipping {file}")
+            unlock_file(file)
+            continue
+
+
+        # Write the transcribed text to the text file
+        with open(text_file, "w", encoding="utf-8") as f:
+            f.write(transcribed_text)
+        print(f"Transcribed text written to {text_file}")
+        
+        unlock_file(file)
+    else:
+        print(f"Skipping {file} because it is being transcribed by another process.")
         continue
 
-
-    # Write the transcribed text to the text file
-    with open(text_file, "w", encoding="utf-8") as f:
-        f.write(transcribed_text)
-
-
-    print(f"Transcribed text written to {text_file}")
 
     print()
 
