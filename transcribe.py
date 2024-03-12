@@ -2,9 +2,14 @@ import os
 import tkinter as tk
 import tkinter.ttk as ttk
 from tkinter import filedialog
-from whisper import load_model
+from whisper import load_model, transcribe, available_models
 import time
+import json
 
+
+#transcribable_extensions = [".mp3", ".mp4", ".flac", ".wav", ".ogg", ".mkv"]
+# Define a list of transcribable file extensions
+transcribable_extensions = ['.mp3', '.wav', '.m4a', '.mp4', '.mkv', '.avi']
 
 whisper_models = {
     "tiny": "Fastest model, minimal hardware requirements, suitable for quick tasks.",
@@ -17,6 +22,14 @@ whisper_models = {
     "base.en": "English-optimized version of the base model, improving performance for English audio.",
     "medium.en": "English-optimized version of the medium model, best for English audio with high accuracy needs."
 }
+
+
+def save_segments(file_path, segments):
+    json_file = os.path.splitext(file_path)[0] + ".json"
+    with open(json_file, 'w', encoding='utf-8') as f:
+        json.dump(segments, f, ensure_ascii=False, indent=4)
+    print(f"Segment information saved to {json_file}")
+
 
 def is_file_locked(file_path):
     lock_file = file_path + ".lock"
@@ -54,11 +67,9 @@ def choose_directory():
 def transcribe_file(file_path, model_name):
     model = load_model(model_name)  # Using the base model for demonstration; adjust as needed
     result = model.transcribe(file_path, verbose=True, fp16=False, task="transcribe")
-    return result['text']
+    return result
 
 
-# Define a list of transcribable file extensions
-transcribable_extensions = ['.mp3', '.wav', '.m4a', '.mp4', '.mkv', '.avi']
 
 
 def choose_model(models):
@@ -144,8 +155,10 @@ for file in files_to_transcribe:
     
     if not is_file_locked(file):
         lock_file(file)
-        transcribed_text = transcribe_file(file, model_name=selected_model)
-
+        
+        transcription_result=transcribe_file(file, model_name=selected_model)
+        transcribed_text =transcription_result['text']
+        segments = transcription_result['segments']
 
         # Check if the transcribed text is empty
         if not transcribed_text:
@@ -158,6 +171,8 @@ for file in files_to_transcribe:
         with open(text_file, "w", encoding="utf-8") as f:
             f.write(transcribed_text)
         print(f"Transcribed text written to {text_file}")
+
+        save_segments(file, segments)
         
         unlock_file(file)
     else:
