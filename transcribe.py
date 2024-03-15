@@ -43,7 +43,11 @@ def is_file_locked(file_path):
 
 def lock_file(file_path):
     lock_file = file_path + ".lock"
-    open(lock_file, 'a').close()  # Create an empty lock file
+    try:
+        open(lock_file, 'a').close()  # Create an empty lock file
+    except FileNotFoundError:
+        pass
+    
 
 def unlock_file(file_path):
     lock_file = file_path + ".lock"
