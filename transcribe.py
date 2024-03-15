@@ -6,11 +6,9 @@ from whisper import load_model, transcribe, available_models
 import time
 import json
 
-
 #transcribable_extensions = [".mp3", ".mp4", ".flac", ".wav", ".ogg", ".mkv"]
 # Define a list of transcribable file extensions
 transcribable_extensions = ['.mp3', '.wav', '.m4a', '.mp4', '.mkv', '.avi']
-
 whisper_models = {
     "tiny": "Fastest model, minimal hardware requirements, suitable for quick tasks.",
     "small": "Mid-sized model, improved accuracy for complex audio, requires moderate hardware.",
@@ -23,13 +21,11 @@ whisper_models = {
     "medium.en": "English-optimized version of the medium model, best for English audio with high accuracy needs."
 }
 
-
 def save_segments(file_path, segments):
     json_file = os.path.splitext(file_path)[0] + ".json"
     with open(json_file, 'w', encoding='utf-8') as f:
         json.dump(segments, f, ensure_ascii=False, indent=4)
     print(f"Segment information saved to {json_file}")
-
 
 def is_file_locked(file_path):
     lock_file = file_path + ".lock"
@@ -45,15 +41,16 @@ def is_file_locked(file_path):
             return True  # File is actively locked
     return False  # No lock exists
 
-
 def lock_file(file_path):
     lock_file = file_path + ".lock"
     open(lock_file, 'a').close()  # Create an empty lock file
 
 def unlock_file(file_path):
     lock_file = file_path + ".lock"
-    os.remove(lock_file)  # Remove the lock file
-
+    try:
+        os.remove(lock_file)  # Remove the lock file
+    except FileNotFoundError:
+        pass
 
 def choose_directory():
     # Initialize the Tkinter root element
@@ -68,9 +65,6 @@ def transcribe_file(file_path, model_name):
     model = load_model(model_name)  # Using the base model for demonstration; adjust as needed
     result = model.transcribe(file_path, verbose=True, fp16=False, task="transcribe")
     return result
-
-
-
 
 def choose_model(models):
     # Create a new Tkinter window
@@ -89,7 +83,6 @@ def choose_model(models):
     def on_ok_clicked():        
         root.quit()
 
-
     # OK button
     ok_button = tk.ttk.Button(root, text="OK", command=on_ok_clicked)
     ok_button.grid(column=0, row=2, padx=10, pady=10)
@@ -105,8 +98,6 @@ def choose_model(models):
     root.withdraw() 
     return chosen_model
 
-
-
 # Function to list transcribable files in a directory
 def list_transcribable_files(directory):
     transcribable_files = []
@@ -114,15 +105,12 @@ def list_transcribable_files(directory):
     # Walk through the directory
     for root, dirs, files in os.walk(directory):
         for file in files:
-
             if file.startswith('.'):
                 continue
-
             # Check if the file has a transcribable extension
             if any(file.lower().endswith(ext) for ext in transcribable_extensions):
                 # Add the file to the list
                 transcribable_files.append(os.path.join(root, file))
-
     return transcribable_files
 
 # Specify the directory to check
@@ -166,19 +154,13 @@ for file in files_to_transcribe:
             unlock_file(file)
             continue
 
-
         # Write the transcribed text to the text file
         with open(text_file, "w", encoding="utf-8") as f:
             f.write(transcribed_text)
         print(f"Transcribed text written to {text_file}")
-
-        save_segments(file, segments)
-        
+        save_segments(file, segments) 
         unlock_file(file)
     else:
         print(f"Skipping {file} because it is being transcribed by another process.")
         continue
-
-
     print()
-
