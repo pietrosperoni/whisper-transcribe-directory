@@ -1,12 +1,14 @@
 import os
 import tkinter as tk
-import tkinter.ttk as ttk
-from tkinter import filedialog
+from tkinter import filedialog, ttk
 from whisper import load_model, transcribe, available_models
+from whisper.utils import get_writer
 import time
 import json
+from langdetect import detect  
 
-#transcribable_extensions = [".mp3", ".mp4", ".flac", ".wav", ".ogg", ".mkv"]
+output_formats = ['txt', 'srt', 'vtt', 'tsv', 'json']
+
 # Define a list of transcribable file extensions
 transcribable_extensions = ['.mp3', '.wav', '.m4a', '.mp4', '.mkv', '.avi']
 whisper_models = {
@@ -21,11 +23,21 @@ whisper_models = {
     "medium.en": "English-optimized version of the medium model, best for English audio with high accuracy needs."
 }
 
-def save_segments(file_path, segments):
-    json_file = os.path.splitext(file_path)[0] + ".json"
-    with open(json_file, 'w', encoding='utf-8') as f:
-        json.dump(segments, f, ensure_ascii=False, indent=4)
-    print(f"Segment information saved to {json_file}")
+def is_old_json_format(data):
+    # Check if the data is in the old JSON format
+    if not isinstance(data, list):      return False
+    if not isinstance(data[0], dict):   return False
+    if not "text" in data[0]:           return False
+    return True
+
+def is_new_json_format(data):
+    # Check if the data is in the new JSON format
+    if not isinstance(data, dict):       return False
+    if not "text" in data:               return False
+    return True
+
+def infer_language_from_text(text):
+    return detect(text)
 
 def is_file_locked(file_path):
     lock_file = file_path + ".lock"
@@ -40,14 +52,6 @@ def is_file_locked(file_path):
         else:
             return True  # File is actively locked
     return False  # No lock exists
-
-def lock_file(file_path):
-    lock_file = file_path + ".lock"
-    try:
-        open(lock_file, 'a').close()  # Create an empty lock file
-    except FileNotFoundError:
-        pass
-    
 
 def unlock_file(file_path):
     lock_file = file_path + ".lock"
@@ -65,42 +69,91 @@ def choose_directory():
     directory_path = filedialog.askdirectory(initialdir=desktop_path)
     return directory_path
 
-def transcribe_file(file_path, model_name):
+def transcribe_file(file_path, model_name,prompt_to_send=""):
     model = load_model(model_name)  # Using the base model for demonstration; adjust as needed
-    result = model.transcribe(file_path, verbose=True, fp16=False, task="transcribe")
+    result = model.transcribe(file_path, verbose=True, fp16=False, task="transcribe", initial_prompt=prompt_to_send)
     return result
 
-def choose_model(models):
-    # Create a new Tkinter window
-    root = tk.Tk()
-    root.title("Select a Model")
+def write_srt(file,transcription_result,file_directory="",options={}):
+    if not file_directory:
+        file_directory=os.path.dirname(file)
+    #checking if file already exists and in case skipping it
+    srt_file = os.path.splitext(file)[0] + ".srt"
+    if os.path.exists(srt_file) and os.path.getsize(srt_file) > 0:
+        print(f"Skipping {srt_file} because it already exists and is not empty")
+        return
+    writer_srt = get_writer("srt", file_directory) # get srt writer for the current directory
+    writer_srt(transcription_result, file, options) # add empty dictionary for 'options'
 
-    # Create a Combobox for model selection
-    tk.ttk.Label(root, text="Choose a Whisper model:").grid(column=0, row=0, padx=10, pady=10)
-    selected_model = tk.StringVar()
-    model_selector = tk.ttk.Combobox(root, width=60, textvariable=selected_model, state="readonly")
-    model_selector['values'] = list(models.keys())  # Use the keys of the dictionary as values
-    model_selector.grid(column=0, row=1, padx=10, pady=10)
-    model_selector.current(7)  # Set the default selection on base.en
+def write_txt(file,transcription_result,file_directory="",options={}):
+    if not file_directory:
+        file_directory=os.path.dirname(file)
+    #checking if file already exists and in case skipping it
+    text_file = os.path.splitext(file)[0] + ".txt"
+    if os.path.exists(text_file) and os.path.getsize(text_file) > 0:
+        print(f"Skipping {text_file} because it already exists and is not empty")
+        return
+    writer_txt = get_writer("txt", file_directory) # get srt writer for the current directory
+    writer_txt(transcription_result, file, options) # add empty dictionary for 'options'
 
-    # Function to handle "OK" button click
-    def on_ok_clicked():        
-        root.quit()
+def write_vtt(file,transcription_result,file_directory="",options={}):
+    if not file_directory:
+        file_directory=os.path.dirname(file)
+    #checking if file already exists and in case skipping it
+    vtt_file = os.path.splitext(file)[0] + ".vtt"
+    if os.path.exists(vtt_file) and os.path.getsize(vtt_file) > 0:
+        print(f"Skipping {vtt_file} because it already exists and is not empty")
+        return
+    writer_vtt = get_writer("vtt", file_directory) # get srt writer for the current directory
+    writer_vtt(transcription_result, file, options) # add empty dictionary for 'options'
 
-    # OK button
-    ok_button = tk.ttk.Button(root, text="OK", command=on_ok_clicked)
-    ok_button.grid(column=0, row=2, padx=10, pady=10)
+def write_tsv(file,transcription_result,file_directory="",options={}):
+    if not file_directory:
+        file_directory=os.path.dirname(file)
+    #checking if file already exists and in case skipping it
+    tsv_file = os.path.splitext(file)[0] + ".tsv"
+    if os.path.exists(tsv_file) and os.path.getsize(tsv_file) > 0:
+        print(f"Skipping {tsv_file} because it already exists and is not empty")
+        return
+    writer_tsv = get_writer("tsv", file_directory) # 
+    writer_tsv(transcription_result, file, options) # add empty dictionary for 'options'
 
-    # Display the models and their descriptions
-    for i, (model, description) in enumerate(models.items()):
-        tk.Label(root, text=f"{model}: {description}").grid(column=1, row=i, padx=10, pady=5)
+def write_json(file,transcription_result,file_directory="",options={}):
+   
 
-    root.mainloop()  # Run the Tkinter event loop
+    if not file_directory:
+        file_directory=os.path.dirname(file)
+    #checking if file already exists and in case skipping it
+    json_file = os.path.splitext(file)[0] + ".json"
+    if os.path.exists(json_file) and os.path.getsize(json_file) > 0:
+        print(f"Skipping {json_file} because it already exists and is not empty")
+        return
+    writer_json = get_writer("json", file_directory) # 
+    writer_json(transcription_result, file, options) # not sure what are the options for json
 
-    chosen_model = model_selector.get()  # Assign the value of selected_model.get() to a variable
-    print(f"Selected model: {chosen_model}")
-    root.withdraw() 
-    return chosen_model
+def write_files(file,transcription_result,file_directory="",options={},selected_formats=['txt', 'srt', 'vtt', 'tsv', 'json']):
+    if not file_directory:
+        file_directory = os.path.dirname(file)
+
+    if 'json' in selected_formats:
+        json_options = options.get("json", {})
+        write_json(file, transcription_result, file_directory, json_options)
+
+    if 'srt' in selected_formats:
+        srt_options = options.get("srt", {})
+        write_srt(file, transcription_result, file_directory, srt_options)
+
+    if 'txt' in selected_formats:
+        txt_options = options.get("txt", {})
+        write_txt(file, transcription_result, file_directory, txt_options)
+
+    if 'vtt' in selected_formats:
+        vtt_options = options.get("vtt", {})
+        write_vtt(file,transcription_result,file_directory,vtt_options)
+
+    if 'tsv' in selected_formats:
+        tsv_options = options.get("tsv", {})
+        write_tsv(file,transcription_result,file_directory,tsv_options)
 
 # Function to list transcribable files in a directory
 def list_transcribable_files(directory):
@@ -117,54 +170,195 @@ def list_transcribable_files(directory):
                 transcribable_files.append(os.path.join(root, file))
     return transcribable_files
 
-# Specify the directory to check
-directory_to_check = choose_directory()
 
-# Get the list of transcribable files
-files_to_transcribe = list_transcribable_files(directory_to_check)
+def perform_transcription(directory_to_transcribe, selected_model, options, selected_formats, prompt):
 
-# Print the list of files
-print("Files that can be transcribed:")
-for file in files_to_transcribe:
-    print(file)
+    # Get the list of transcribable files
+    files_to_transcribe = list_transcribable_files(directory_to_transcribe)
 
-selected_model = choose_model(whisper_models)  # Let the user choose a model
-print (f"Using model: {selected_model}")
+    # Print the list of files
+    print("Files that can be transcribed:")
+    for file in files_to_transcribe:
+        print(file)
 
-# Transcribe the files to a text file if the text file with the same name is absent
-# or is empty. 
-    
-for file in files_to_transcribe:
-    print(f"Transcribing {file}...")
 
-    print(f"File path being transcribed: '{file}'")
+    for file in files_to_transcribe:
+        print(f"Transcribing {file}...")
+        file_directory=os.path.dirname(file)
 
-    # Check if the text file already exists
-    text_file = os.path.splitext(file)[0] + ".txt"
-    if os.path.exists(text_file) and os.path.getsize(text_file) > 0:
-        print(f"Skipping {text_file} because it already exists and is not empty")
-        continue
-    
-    if not is_file_locked(file):
-        lock_file(file)
+        # the whole system of lock-unlock is being eliminated because whisper does not get better running multiple processes
+        if is_file_locked(file):   unlock_file(file)
+
+        # Check if the json file already exists and if it is old, new, or something else
+        json_file = os.path.splitext(file)[0] + ".json"
+
+        #check if the json file exists
+        if os.path.exists(json_file):
+            #reading the json file and placing it in the data variable
+            data=json.decoder.JSONDecoder().decode(open(json_file).read())
+
+            if is_old_json_format(data):
+                text_file = os.path.splitext(file)[0] + ".txt"
+
+                #reading the old text file
+                old_text=open(text_file).read()
+                old_json=data.copy()
+
+                language=infer_language_from_text(old_text)
+                new_data={}
+                new_data["text"]=old_text
+                new_data["segments"]=old_json
+                new_data["language"]=language
+
+                #rename json file into .old.json
+                os.rename(json_file, json_file+".old")
+
+                #write the new files
+                write_files(file,new_data,file_directory,options, selected_formats)
+
+            else:
+                if is_new_json_format(data):
+                    write_files(file,data,file_directory,options, selected_formats)
+                else:
+                    print(f"{json_file} not in the expected format, please delete it manually if you want me to continue")
+                    exit(1)
+        else:
+
+            transcription_result=transcribe_file(file, selected_model,prompt)
+            transcribed_text =transcription_result['text']
+
+            # Check if the transcribed text is empty
+            if not transcribed_text:
+                print(f"Transcribed text is empty. Skipping {file}")
+                continue
+            write_files(file,transcription_result,file_directory,options, selected_formats)            
+        print()
+
+
+def start_ui():
+    def open_directory_selector():
+        selected_directory = filedialog.askdirectory()  # Apre il dialogo di selezione directory
+        if selected_directory:  # Se l'utente seleziona una directory
+            directory_path.set(selected_directory)  # Aggiorna la variabile legata all'edit box
+            directory_entry.delete(0, tk.END)  # Rimuove il testo attuale dall'edit box
+            directory_entry.insert(tk.END, selected_directory)  # Inserisce il nuovo percorso nella edit box 
+            transcription_button.config(state=tk.NORMAL)  # Enable the transcription button
+  
+
+    def start_transcription():
+        # Logica per iniziare la trascrizione
+        print("Inizio trascrizione...")
+        chosen_model = selected_model.get()
+        print("Selected model:", chosen_model)
+        selected_formats = [fmt for fmt, var in format_vars.items() if var.get()]
+        print("selected_formats:", selected_formats)
+        directory_to_check = directory_entry.get()
+        print("directory_to_check:", directory_to_check)
+        prompt_to_send=prompt_entry.get()
+        print("prompt_to_send:", prompt_to_send)
+        #TODO: remember to add the prompt to the transcription
+            
+        # Initialize the options dictionary
+        options = {}
+
+        # Gather options for each selected format
+        for fmt in selected_formats:
+            # Initialize options for the current format
+            format_options = {}
+            
+            # Get the max line width from the corresponding entry widget
+            max_line_width = max_line_width_entries[fmt].get()
+            # Add options to the format dictionary
+            format_options["max_words_per_line"] = int(max_line_width)
+            format_options["highlight_words"] = False  # Default value, can be adjusted as needed
+            format_options["max_line_count"] = 1
+            
+            # Store the format options in the main options dictionary
+            options[fmt] = format_options
+
+        # Print the options for debugging
+        print("Options:", options)
+        perform_transcription(directory_to_check, chosen_model, options, selected_formats,prompt_to_send)
+        print("Trascrizione completata")
+
         
-        transcription_result=transcribe_file(file, model_name=selected_model)
-        transcribed_text =transcription_result['text']
-        segments = transcription_result['segments']
+    # Inizializza l'interfaccia grafica principale
+    root = tk.Tk()
+    root.title("Trascrittore Whisper")
 
-        # Check if the transcribed text is empty
-        if not transcribed_text:
-            print(f"Transcribed text is empty. Skipping {file}")
-            unlock_file(file)
-            continue
+    # Directory frame
+    directory_frame = tk.Frame(root)
+    directory_frame.pack(pady=10)
+    directory_path = tk.StringVar()
+    tk.Label(directory_frame, text="Directory:").pack(side=tk.LEFT)
+    directory_entry = tk.Entry(directory_frame, textvariable=directory_path, width=50)
+    directory_entry.pack(side=tk.LEFT)
+    tk.Button(directory_frame, text="Sfoglia", command=open_directory_selector).pack(side=tk.LEFT)
 
-        # Write the transcribed text to the text file
-        with open(text_file, "w", encoding="utf-8") as f:
-            f.write(transcribed_text)
-        print(f"Transcribed text written to {text_file}")
-        save_segments(file, segments) 
-        unlock_file(file)
-    else:
-        print(f"Skipping {file} because it is being transcribed by another process.")
-        continue
-    print()
+    # Model frame
+    model_frame = tk.Frame(root)
+    model_frame.pack(pady=10)
+    selected_model = tk.StringVar(value="medium.en")
+
+    standard_models_frame = tk.LabelFrame(model_frame, text="Standard models")
+    standard_models_frame.pack(side=tk.LEFT, padx=10)
+    english_models_frame = tk.LabelFrame(model_frame, text="English models")
+    english_models_frame.pack(side=tk.LEFT, padx=10)
+
+    models = [("tiny", standard_models_frame), ("small", standard_models_frame), 
+              ("base", standard_models_frame), ("medium", standard_models_frame), 
+              ("large", standard_models_frame), ("tiny.en", english_models_frame), 
+              ("small.en", english_models_frame), ("base.en", english_models_frame), 
+              ("medium.en", english_models_frame)]
+    
+    for model, frame in models:
+        tk.Radiobutton(frame, text=model, variable=selected_model, value=model).pack(anchor=tk.W)
+
+
+    # Format frame
+    format_frame = tk.LabelFrame(root, text="Output Formats")
+    format_frame.pack(pady=10)
+    formats = ["txt", "srt", "vtt", "tsv", "json"]
+    format_vars = {fmt: tk.BooleanVar(value=True) for fmt in formats}
+    max_line_width_entries = {}  # Dictionary to hold max line width entry widgets
+
+    feedback_frame = tk.Frame(root)
+    feedback_frame.pack(pady=10, fill=tk.BOTH, expand=True)
+    feedback_text = tk.Text(feedback_frame, height=10)
+    feedback_text.pack(fill=tk.BOTH, expand=True)
+
+    for fmt in formats:
+        checkbox_frame = tk.Frame(format_frame)
+        checkbox_frame.pack(anchor=tk.W)
+
+        checkbox = tk.Checkbutton(checkbox_frame, text=fmt.upper(), variable=format_vars[fmt])
+        checkbox.pack(side=tk.LEFT)
+
+        max_line_width_var = tk.StringVar(value="35")  # Default max line width
+        tk.Label(checkbox_frame, text="Max words per line (does not work):").pack(side=tk.LEFT)
+        max_line_width_entry = tk.Entry(checkbox_frame, textvariable=max_line_width_var, width=5)
+        max_line_width_entry.pack(side=tk.LEFT)
+        max_line_width_entries[fmt] = max_line_width_entry  # Store entry widget in dictionary
+
+    feedback_frame.pack(pady=10, fill=tk.BOTH, expand=True)
+    feedback_text = tk.Text(feedback_frame, height=10)
+    feedback_text.pack(fill=tk.BOTH, expand=True)
+
+    # Prompt frame
+    prompt_frame = tk.Frame(root)
+    prompt_frame.pack(pady=10)
+    prompt_text = tk.StringVar()
+    tk.Label(prompt_frame, text="Prompt:").pack(side=tk.LEFT)
+    prompt_entry = tk.Entry(prompt_frame, textvariable=prompt_text, width=50)
+    prompt_entry.pack(side=tk.LEFT)
+
+    # Transcription button
+    transcription_button = tk.Button(root, text="Start Transcription", command=start_transcription)
+    transcription_button.pack(pady=10)
+    transcription_button.config(state=tk.DISABLED)  # Disable the transcription button initially
+
+    root.mainloop()
+
+
+# Chiamata alla funzione per avviare l'interfaccia utente
+start_ui()
