@@ -9,6 +9,116 @@ from langdetect import detect
 
 output_formats = ['txt', 'srt', 'vtt', 'tsv', 'json']
 
+LANGUAGES = {
+    "None": "find out automatically",
+    "it": "italian",
+    "en": "english",
+    "zh": "chinese",
+    "de": "german",
+    "es": "spanish",
+    "ru": "russian",
+    "ko": "korean",
+    "fr": "french",
+    "ja": "japanese",
+    "pt": "portuguese",
+    "tr": "turkish",
+    "pl": "polish",
+    "ca": "catalan",
+    "nl": "dutch",
+    "ar": "arabic",
+    "sv": "swedish",
+    "id": "indonesian",
+    "hi": "hindi",
+    "fi": "finnish",
+    "vi": "vietnamese",
+    "he": "hebrew",
+    "uk": "ukrainian",
+    "el": "greek",
+    "ms": "malay",
+    "cs": "czech",
+    "ro": "romanian",
+    "da": "danish",
+    "hu": "hungarian",
+    "ta": "tamil",
+    "no": "norwegian",
+    "th": "thai",
+    "ur": "urdu",
+    "hr": "croatian",
+    "bg": "bulgarian",
+    "lt": "lithuanian",
+    "la": "latin",
+    "mi": "maori",
+    "ml": "malayalam",
+    "cy": "welsh",
+    "sk": "slovak",
+    "te": "telugu",
+    "fa": "persian",
+    "lv": "latvian",
+    "bn": "bengali",
+    "sr": "serbian",
+    "az": "azerbaijani",
+    "sl": "slovenian",
+    "kn": "kannada",
+    "et": "estonian",
+    "mk": "macedonian",
+    "br": "breton",
+    "eu": "basque",
+    "is": "icelandic",
+    "hy": "armenian",
+    "ne": "nepali",
+    "mn": "mongolian",
+    "bs": "bosnian",
+    "kk": "kazakh",
+    "sq": "albanian",
+    "sw": "swahili",
+    "gl": "galician",
+    "mr": "marathi",
+    "pa": "punjabi",
+    "si": "sinhala",
+    "km": "khmer",
+    "sn": "shona",
+    "yo": "yoruba",
+    "so": "somali",
+    "af": "afrikaans",
+    "oc": "occitan",
+    "ka": "georgian",
+    "be": "belarusian",
+    "tg": "tajik",
+    "sd": "sindhi",
+    "gu": "gujarati",
+    "am": "amharic",
+    "yi": "yiddish",
+    "lo": "lao",
+    "uz": "uzbek",
+    "fo": "faroese",
+    "ht": "haitian creole",
+    "ps": "pashto",
+    "tk": "turkmen",
+    "nn": "nynorsk",
+    "mt": "maltese",
+    "sa": "sanskrit",
+    "lb": "luxembourgish",
+    "my": "myanmar",
+    "bo": "tibetan",
+    "tl": "tagalog",
+    "mg": "malagasy",
+    "as": "assamese",
+    "tt": "tatar",
+    "haw": "hawaiian",
+    "ln": "lingala",
+    "ha": "hausa",
+    "ba": "bashkir",
+    "jw": "javanese",
+    "su": "sundanese",
+    "yue": "cantonese",
+}
+
+def invert_dict(d):
+    return dict((v, k) for k, v in d.items())
+
+LANGUAGES_CODES = invert_dict(LANGUAGES)
+
+
 # Define a list of transcribable file extensions
 transcribable_extensions = ['.mp3', '.wav', '.m4a', '.mp4', '.mkv', '.avi']
 whisper_models = {
@@ -69,9 +179,9 @@ def choose_directory():
     directory_path = filedialog.askdirectory(initialdir=desktop_path)
     return directory_path
 
-def transcribe_file(file_path, model_name,prompt_to_send=""):
+def transcribe_file(file_path, model_name,prompt_to_send="",selected_language_code="None"):
     model = load_model(model_name)  # Using the base model for demonstration; adjust as needed
-    result = model.transcribe(file_path, verbose=True, fp16=False, task="transcribe", initial_prompt=prompt_to_send)
+    result = model.transcribe(file_path, verbose=True, fp16=False, task="transcribe", initial_prompt=prompt_to_send,language=selected_language_code)
     return result
 
 def write_srt(file,transcription_result,file_directory="",options={}):
@@ -171,7 +281,7 @@ def list_transcribable_files(directory):
     return transcribable_files
 
 
-def perform_transcription(directory_to_transcribe, selected_model, options, selected_formats, prompt):
+def perform_transcription(directory_to_transcribe, selected_model, options, selected_formats, prompt,selected_language_code):
 
     # Get the list of transcribable files
     files_to_transcribe = list_transcribable_files(directory_to_transcribe)
@@ -224,7 +334,7 @@ def perform_transcription(directory_to_transcribe, selected_model, options, sele
                     exit(1)
         else:
 
-            transcription_result=transcribe_file(file, selected_model,prompt)
+            transcription_result=transcribe_file(file, selected_model,prompt,selected_language_code)
             transcribed_text =transcription_result['text']
 
             # Check if the transcribed text is empty
@@ -248,19 +358,25 @@ def start_ui():
     def start_transcription():
         # Logica per iniziare la trascrizione
         print("Inizio trascrizione...")
+
         chosen_model = selected_model.get()
         print("Selected model:", chosen_model)
+
+        if chosen_model[-3:] == ".en":      selected_language = "english"
+        else:                               selected_language = language.get()
+        selected_language_code=LANGUAGES_CODES[selected_language]
+        print(f"language {selected_language_code} ({selected_language}) with the model: {selected_model.get()}")
+
         selected_formats = [fmt for fmt, var in format_vars.items() if var.get()]
         print("selected_formats:", selected_formats)
+
         directory_to_check = directory_entry.get()
         print("directory_to_check:", directory_to_check)
-        prompt_to_send=prompt_entry.get()
-        print("prompt_to_send:", prompt_to_send)
-        #TODO: remember to add the prompt to the transcription
-            
+
+        prompt_to_send = prompt_entry.get()
+        print("prompt_to_send:", prompt_to_send)            
         # Initialize the options dictionary
         options = {}
-
         # Gather options for each selected format
         for fmt in selected_formats:
             # Initialize options for the current format
@@ -278,7 +394,7 @@ def start_ui():
 
         # Print the options for debugging
         print("Options:", options)
-        perform_transcription(directory_to_check, chosen_model, options, selected_formats,prompt_to_send)
+        perform_transcription(directory_to_check, chosen_model, options, selected_formats,prompt_to_send,selected_language_code)
         print("Trascrizione completata")
 
         
@@ -314,6 +430,22 @@ def start_ui():
     for model, frame in models:
         tk.Radiobutton(frame, text=model, variable=selected_model, value=model).pack(anchor=tk.W)
 
+
+    # Elenco delle lingue supportate
+
+    selected_language = tk.StringVar()
+
+
+    # Menu a discesa per la selezione della lingua
+    language_frame = tk.Frame(standard_models_frame)
+    language_frame.pack(fill=tk.X, expand=True)
+    tk.Label(language_frame, text="Language:").pack(side=tk.LEFT)
+    language = tk.StringVar()
+    language_combobox = ttk.Combobox(language_frame, textvariable=language, state="readonly")
+    # Usa i nomi completi delle lingue come valori nel menu a discesa
+    language_combobox['values'] = list(LANGUAGES.values())
+    language_combobox.pack(side=tk.LEFT, fill=tk.X, expand=True)
+    language_combobox.set('italian')  # Imposta un valore predefinito, se necessario
 
     # Format frame
     format_frame = tk.LabelFrame(root, text="Output Formats")
