@@ -11,106 +11,106 @@ output_formats = ['txt', 'srt', 'vtt', 'tsv', 'json']
 
 LANGUAGES = {
     "None": "find out automatically",
-    "it": "italian",
-    "en": "english",
-    "zh": "chinese",
-    "de": "german",
-    "es": "spanish",
-    "ru": "russian",
-    "ko": "korean",
-    "fr": "french",
-    "ja": "japanese",
-    "pt": "portuguese",
-    "tr": "turkish",
-    "pl": "polish",
-    "ca": "catalan",
     "nl": "dutch",
-    "ar": "arabic",
-    "sv": "swedish",
-    "id": "indonesian",
-    "hi": "hindi",
-    "fi": "finnish",
-    "vi": "vietnamese",
-    "he": "hebrew",
-    "uk": "ukrainian",
-    "el": "greek",
-    "ms": "malay",
-    "cs": "czech",
-    "ro": "romanian",
-    "da": "danish",
-    "hu": "hungarian",
-    "ta": "tamil",
-    "no": "norwegian",
+    "es": "spanish",
+    "ko": "korean",
+    "it": "italian",
+    "de": "german",
     "th": "thai",
-    "ur": "urdu",
-    "hr": "croatian",
+    "ru": "russian",
+    "pt": "portuguese",
+    "pl": "polish",
+    "id": "indonesian",
+    "sv": "swedish",
+    "cs": "czech",
+    "en": "english",
+    "ja": "japanese",
+    "fr": "french",
+    "ro": "romanian",
+    "zh": "chinese",
+    "tr": "turkish",
+    "ca": "catalan",
+    "hu": "hungarian",
+    "el": "greek",
     "bg": "bulgarian",
-    "lt": "lithuanian",
-    "la": "latin",
-    "mi": "maori",
-    "ml": "malayalam",
-    "cy": "welsh",
-    "sk": "slovak",
-    "te": "telugu",
-    "fa": "persian",
-    "lv": "latvian",
-    "bn": "bengali",
+    "ar": "arabic",
     "sr": "serbian",
-    "az": "azerbaijani",
-    "sl": "slovenian",
-    "kn": "kannada",
-    "et": "estonian",
     "mk": "macedonian",
-    "br": "breton",
-    "eu": "basque",
-    "is": "icelandic",
-    "hy": "armenian",
-    "ne": "nepali",
-    "mn": "mongolian",
-    "bs": "bosnian",
-    "kk": "kazakh",
-    "sq": "albanian",
-    "sw": "swahili",
+    "yue": "cantonese",
+    "lv": "latvian",
+    "sl": "slovenian",
+    "hi": "hindi",
     "gl": "galician",
-    "mr": "marathi",
+    "da": "danish",
+    "ur": "urdu",
+    "sk": "slovak",
+    "he": "hebrew",    
+    "fi": "finnish",
+    "az": "azerbaijani",
+    "lt": "lithuanian",
+    "et": "estonian",
+    "nn": "nynorsk",
+    "cy": "welsh",
     "pa": "punjabi",
-    "si": "sinhala",
-    "km": "khmer",
-    "sn": "shona",
-    "yo": "yoruba",
-    "so": "somali",
     "af": "afrikaans",
-    "oc": "occitan",
-    "ka": "georgian",
+    "fa": "persian",
+    "eu": "basque",
+    "vi": "vietnamese",
+    "bn": "bengali",
+    "ne": "nepali",
+    "mr": "marathi",
     "be": "belarusian",
+    "kk": "kazakh",
+    "hy": "armenian",
+    "sw": "swahili",
+    "ta": "tamil",
+    "sq": "albanian",
+    "as": "assamese",
+    "ba": "bashkir",
+    "bs": "bosnian",
+    "br": "breton",
+    "hr": "croatian",
+    "ka": "georgian",
+    "fo": "faroese",
+    "is": "icelandic",
+    "kn": "kannada",
+    "km": "khmer",
+    "lo": "lao",
+    "la": "latin",
+    "ms": "malay",
+    "ml": "malayalam",
+    "mi": "maori",
+    "mn": "mongolian",
+    "no": "norwegian",
+    "oc": "occitan",
+    "sa": "sanskrit",
+    "sn": "shona",
+    "si": "sinhala",
+    "so": "somali",
+    "tl": "tagalog",
     "tg": "tajik",
+    "te": "telugu",
+    "uk": "ukrainian",
+    "yo": "yoruba",
     "sd": "sindhi",
     "gu": "gujarati",
     "am": "amharic",
     "yi": "yiddish",
-    "lo": "lao",
     "uz": "uzbek",
-    "fo": "faroese",
     "ht": "haitian creole",
     "ps": "pashto",
     "tk": "turkmen",
-    "nn": "nynorsk",
     "mt": "maltese",
-    "sa": "sanskrit",
     "lb": "luxembourgish",
     "my": "myanmar",
     "bo": "tibetan",
-    "tl": "tagalog",
     "mg": "malagasy",
-    "as": "assamese",
     "tt": "tatar",
     "haw": "hawaiian",
     "ln": "lingala",
     "ha": "hausa",
-    "ba": "bashkir",
     "jw": "javanese",
     "su": "sundanese",
-    "yue": "cantonese",
 }
 
 def invert_dict(d):
@@ -181,7 +181,7 @@ def choose_directory():
 
 def transcribe_file(file_path, model_name,prompt_to_send="",selected_language_code="None"):
     model = load_model(model_name)  # Using the base model for demonstration; adjust as needed
-    result = model.transcribe(file_path, verbose=True, fp16=False, task="transcribe", initial_prompt=prompt_to_send,language=selected_language_code)
+    result = model.transcribe(file_path, verbose=True, word_timestamps=True,fp16=False, task="transcribe", initial_prompt=prompt_to_send,language=selected_language_code)
     return result
 
 def write_srt(file,transcription_result,file_directory="",options={}):
@@ -381,14 +381,13 @@ def start_ui():
         for fmt in selected_formats:
             # Initialize options for the current format
             format_options = {}
-            
-            # Get the max line width from the corresponding entry widget
-            max_line_width = max_line_width_entries[fmt].get()
-            # Add options to the format dictionary
-            format_options["max_words_per_line"] = int(max_line_width)
-            format_options["highlight_words"] = False  # Default value, can be adjusted as needed
-            format_options["max_line_count"] = 1
-            
+            if fmt in ["srt","vtt"]:
+                # Get the max line width from the corresponding entry widget
+                max_line_width = max_line_width_entries[fmt].get()
+                # Add options to the format dictionary
+                format_options["max_words_per_line"] = int(max_line_width)
+                format_options["highlight_words"] = False  # Default value, can be adjusted as needed
+                format_options["max_line_count"] = 1    
             # Store the format options in the main options dictionary
             options[fmt] = format_options
 
@@ -439,7 +438,7 @@ def start_ui():
     # Menu a discesa per la selezione della lingua
     language_frame = tk.Frame(standard_models_frame)
     language_frame.pack(fill=tk.X, expand=True)
-    tk.Label(language_frame, text="Language:").pack(side=tk.LEFT)
+    #    tk.Label(language_frame, text="Language:").pack(side=tk.LEFT)
     language = tk.StringVar()
     language_combobox = ttk.Combobox(language_frame, textvariable=language, state="readonly")
     # Usa i nomi completi delle lingue come valori nel menu a discesa
@@ -466,15 +465,16 @@ def start_ui():
         checkbox = tk.Checkbutton(checkbox_frame, text=fmt.upper(), variable=format_vars[fmt])
         checkbox.pack(side=tk.LEFT)
 
-        max_line_width_var = tk.StringVar(value="35")  # Default max line width
-        tk.Label(checkbox_frame, text="Max words per line (does not work):").pack(side=tk.LEFT)
-        max_line_width_entry = tk.Entry(checkbox_frame, textvariable=max_line_width_var, width=5)
-        max_line_width_entry.pack(side=tk.LEFT)
-        max_line_width_entries[fmt] = max_line_width_entry  # Store entry widget in dictionary
+        if fmt in ["srt","vtt"]:
+            max_line_width_var = tk.StringVar(value="35")  # Default max line width
+            tk.Label(checkbox_frame, text="Max words per line:").pack(side=tk.LEFT)
+            max_line_width_entry = tk.Entry(checkbox_frame, textvariable=max_line_width_var, width=5)
+            max_line_width_entry.pack(side=tk.LEFT)
+            max_line_width_entries[fmt] = max_line_width_entry  # Store entry widget in dictionary
 
-    feedback_frame.pack(pady=10, fill=tk.BOTH, expand=True)
-    feedback_text = tk.Text(feedback_frame, height=10)
-    feedback_text.pack(fill=tk.BOTH, expand=True)
+    #feedback_frame.pack(pady=10, fill=tk.BOTH, expand=True)
+    #feedback_text = tk.Text(feedback_frame, height=10)
+    #feedback_text.pack(fill=tk.BOTH, expand=True)
 
     # Prompt frame
     prompt_frame = tk.Frame(root)
